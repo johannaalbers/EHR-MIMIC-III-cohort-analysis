@@ -1,87 +1,70 @@
-# EHR Analysis in MIMIC-III  
-SQL Exposure–Outcome Analysis
----
+# Exposure to microorganisms and primary diagnosis in MIMIC-III
 
-## Project Overview
+A SQL exposure-outcome analysis on the MIMIC-III v1.4 critical care database. For every diagnosis and organism pair that clears a minimum sample size, the query returns testing rates, positivity rates and an odds ratio, computed entirely inside the database.
 
-This project analyzes electronic health record (EHR) data from the MIMIC-III database.
-
-SQL-based exposure–outcome analysis using microbiology and diagnosis data  
-
-No patient-level data is included in this repository.
+**Headline result:** the odds ratios recover known clinical causation without being told about it. Septicemia caused by *E. coli* returns an odds ratio near 52 for *E. coli* exposure, while coronary atherosclerosis sits between 0.3 and 0.5 for essentially every organism. The method separates infectious from non-infectious diagnoses on the strength of association alone.
 
 ---
 
-## Data Source
+## What the query does
 
-MIMIC-III v1.4 critical care database  
-Credentialed access via PhysioNet is required.
+A single SQL statement builds the cohort and computes the statistic. No data is pulled into R for processing.
 
-All analyses were conducted on structured and unstructured EHR tables within MIMIC-III.
+1. Take the primary diagnosis (`SEQ_NUM = 1`) for every admission and join it to the ICD-9 description table.
+2. Keep only organisms appearing in at least 200 distinct admissions across the whole database.
+3. Count, per diagnosis and organism pair, the admissions with at least one positive culture, and keep pairs reaching 50 positive admissions.
+4. Count admissions with that diagnosis that were tested at all, positive or negative, to form the denominator.
+5. Compute the odds ratio of exposure given the diagnosis against exposure without it.
 
----
-
-## Exposure to Microorganism vs Primary Diagnosis
-
-## Objective
-
-To assess the association between exposure to specific microorganisms and a primary diagnosis.
+The two count thresholds exist because odds ratios computed on a handful of admissions swing wildly. They are a stability filter, not a significance test.
 
 ---
 
-## Cohort Definition
+## Results
 
-- Only **primary diagnoses** were considered.
-- Only one microbiology test per admission was considered.
-- Admissions were treated as independent observations.
+**Testing intensity follows clinical suspicion.** Infectious primary diagnoses such as unspecified septicemia are tested in 99 to 100 percent of admissions. Non-infectious diagnoses such as coronary atherosclerosis are tested in 60 to 80 percent. Cultures are ordered when infection is suspected, and more selectively otherwise, which is what one would expect from appropriate practice.
 
----
+**Positivity separates the two groups sharply.** Septicemia due to *E. coli* returns a positivity rate around 76 percent for *E. coli*. Coronary atherosclerosis sits at 2 to 5 percent for most organisms, consistent with incidental colonisation rather than causation.
 
-## SQL Analysis
+**Odds ratios recover the known aetiologies.** Pairs with a genuine causal link produce large ratios, the *E. coli* septicemia pair reaching roughly 52. Non-infectious diagnoses produce ratios below 1, between 0.3 and 0.5, indicating no association. Ratios near 1 indicate organisms with no relationship to the diagnosis.
 
-The analysis joins microbiology events with diagnosis codes and computes:
-
-- `LONG_TITLE` (diagnosis description)
-- `ORG_NAME` (microorganism name)
-- `N_DIAG` (number of admissions with diagnosis)
-- `N_TESTED` (number of admissions tested for the microorganism)
-- `N_EXPOSED` (number of admissions exposed)
-- `N_BOTH` (diagnosis + exposure)
-- `ODDS_RATIO`
-
-The odds ratio quantifies the association between microorganism exposure and the primary diagnosis.
+The value of this is less the individual numbers than the check they provide: a method that reproduces established microbiology from routine hospital records is a method that can be trusted on questions where the answer is not already known.
 
 ---
 
-## Interpretation
+## Study design
 
-The odds ratio is interpreted in epidemiological terms:
+This is a retrospective observational analysis, conceptually equivalent to a case-control design. Exposure and outcome are both drawn from existing clinical records and their association is quantified with odds ratios. There is no intervention, no randomisation, and no basis for causal inference from the ratios alone.
 
-- OR > 1: positive association  
-- OR < 1: negative association  
-- OR ≈ 1: no association  
+### Limitations
 
-The analysis is purely SQL-based and does not involve predictive modeling.
-
----
-
-## Methods Used
-
-- SQL cohort construction
-- Odds ratio computation
+- Only the primary diagnosis is used, so comorbidities are ignored. A septic patient admitted primarily for another condition is counted under that condition.
+- A negative culture is treated as absence of any organism, which assumes one test detects all organism types equally well. It does not, so exposure is undercounted.
+- Admissions are treated as independent. Patients with several admissions are counted more than once, which understates the true uncertainty.
+- Testing is not random. Clinicians order cultures when they suspect infection, so the tested population differs systematically from the untested one. Every odds ratio here is conditional on having been tested.
 
 ---
 
-## Skills Demonstrated
+## Data access and governance
 
-- Clinical cohort definition in SQL
-- Epidemiological association analysis
-- Odds ratio interpretation
-- Handling structured and unstructured EHR data
+MIMIC-III v1.4 requires credentialed access through PhysioNet and is governed by a Data Use Agreement.
+
+- No patient-level data is contained in this repository.
+- All notebook outputs are aggregate counts and ratios at the diagnosis and organism level.
+- Database credentials are read from a local `creds.txt` that git excludes. `creds.txt.example` shows the format. No username, password or host name is committed.
 
 ---
 
-## Notes
+## Running it
 
-This repository contains only code and documentation.  
-No identifiable patient information is shared.
+1. Obtain credentialed MIMIC-III access through PhysioNet and connect to the host institution's VPN.
+2. Copy `creds.txt.example` to `creds.txt` and fill in your own values.
+3. Open `EHR_MIMIC-III.ipynb` in an R kernel and run the cells in order.
+
+R packages: `dplyr`, `tidyr`, `tibble`, `lubridate`, `readr`, `stringr`, `data.table`, `odbc`, `RMariaDB`.
+
+---
+
+## My contribution
+
+Coursework for the MSc Health Data Science at Universitat Rovira i Virgili, revised afterwards. The SQL query, the interpretation and the limitations are my own work. The database and its access arrangements were provided by the course.
