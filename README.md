@@ -59,7 +59,8 @@ MIMIC-III v1.4 requires credentialed access through PhysioNet and is governed by
 
 1. Obtain credentialed MIMIC-III access through PhysioNet and connect to the host institution's VPN.
 2. Copy `creds.txt.example` to `creds.txt` and fill in your own values.
-3. Open `EHR_MIMIC-III.ipynb` in an R kernel and run the cells in order.
+3. Install the dependencies with `setup.R`.
+4. Run `EHR_MIMIC-III.ipynb` in the R kernel.
 
 R packages: `dplyr`, `tidyr`, `tibble`, `lubridate`, `readr`, `stringr`, `data.table`, `odbc`, `RMariaDB`.
 
